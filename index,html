@@ -2,12 +2,12 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Evolution Kawaii Survivor</title>
+    <title>Evolution Kawaii Survivor - Working</title>
     <style>
         body { margin: 0; overflow: hidden; background: #fff0f5; color: #ff1493; font-family: 'Hiragino Sans', sans-serif; }
         canvas { display: block; background: #fff; margin: auto; border: 5px solid #ff69b4; }
         #ui { position: absolute; top: 15px; left: 15px; font-weight: bold; font-size: 22px; text-shadow: 2px 2px white; z-index: 10; }
-        #level-up { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 40px; display: none; color: #ff00ff; }
+        #level-up { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 40px; display: none; color: #ff00ff; z-index: 20; }
     </style>
 </head>
 <body>
@@ -32,7 +32,6 @@ const levelUpMsg = document.getElementById('level-up');
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
-// プレイヤー設定
 let player = { x: canvas.width/2, y: canvas.height/2, size: 30, hp: 100, speed: 5, level: 1, char: '👶' };
 let enemies = [];
 let bullets = [];
@@ -40,14 +39,13 @@ let score = 0;
 let nextLevelScore = 50;
 let keys = {};
 
-// 進化テーブル
 const evolutionData = [
     { lv: 1, char: '👶', rank: '見習い', bulletCount: 1, bSize: 20 },
-    { lv: 2, char: '👧', rank: '乙女', bulletCount: 2, bSize: 25 },
-    { lv: 3, char: '👩‍🦰', rank: 'レディ', bulletCount: 3, bSize: 30 },
-    { lv: 4, char: '🧙‍♀️', rank: '魔法少女', bulletCount: 5, bSize: 35 },
-    { lv: 5, char: '👸', rank: 'プリンセス', bulletCount: 8, bSize: 45 },
-    { lv: 6, char: '👑', rank: '女神', bulletCount: 12, bSize: 60 }
+    { lv: 2, char: '👧', rank: '乙女', bulletCount: 3, bSize: 25 },
+    { lv: 3, char: '👩‍🦰', rank: 'レディ', bulletCount: 6, bSize: 30 },
+    { lv: 4, char: '🧙‍♀️', rank: '魔法少女', bulletCount: 10, bSize: 35 },
+    { lv: 5, char: '👸', rank: 'プリンセス', bulletCount: 16, bSize: 45 },
+    { lv: 6, char: '👑', rank: '女神', bulletCount: 24, bSize: 60 }
 ];
 
 const girlEmojis = ['🎀', '🌸', '🍭', '🍓', '🐣', '🦋'];
@@ -58,16 +56,14 @@ window.addEventListener('keyup', e => keys[e.key] = false);
 function checkEvolution() {
     if (score >= nextLevelScore) {
         player.level++;
-        nextLevelScore += 100 * player.level;
+        nextLevelScore += 150 * player.level;
         
-        // 進化の適用
         const evo = evolutionData.find(e => e.lv === player.level) || evolutionData[evolutionData.length - 1];
         player.char = evo.char;
         rankEl.innerText = evo.rank;
         levelEl.innerText = player.level;
         nextEl.innerText = nextLevelScore;
 
-        // 演出
         levelUpMsg.style.display = 'block';
         setTimeout(() => levelUpMsg.style.display = 'none', 1000);
     }
@@ -82,66 +78,81 @@ function spawnEnemy() {
     else { x = -50; y = Math.random() * canvas.height; }
     
     const emoji = girlEmojis[Math.floor(Math.random() * girlEmojis.length)];
-    enemies.push({ x, y, size: 25, speed: 1.5 + (player.level * 0.2), emoji: emoji });
+    enemies.push({ x, y, size: 25, speed: 1.2 + (player.level * 0.3), emoji: emoji });
 }
 
+// 弾（ハート）の発射処理
 function shoot() {
-    if (enemies.length > 0) {
-        const evo = evolutionData.find(e => e.lv === player.level) || evolutionData[evolutionData.length - 1];
-        // 複数方向に発射
-        for(let i=0; i < evo.bulletCount; i++) {
-            const angle = (Math.PI * 2 / evo.bulletCount) * i;
-            bullets.push({ 
-                x: player.x, y: player.y, 
-                vx: Math.cos(angle) * 7, vy: Math.sin(angle) * 7, 
-                life: 100, size: evo.bSize 
-            });
-        }
+    const evo = evolutionData.find(e => e.lv === player.level) || evolutionData[evolutionData.length - 1];
+    for(let i=0; i < evo.bulletCount; i++) {
+        const angle = (Math.PI * 2 / evo.bulletCount) * i;
+        bullets.push({ 
+            x: player.x, 
+            y: player.y, 
+            vx: Math.cos(angle) * 6, 
+            vy: Math.sin(angle) * 6, 
+            life: 120, 
+            size: evo.bSize 
+        });
     }
 }
 
-setInterval(spawnEnemy, 800);
-setInterval(shoot, 600);
+setInterval(spawnEnemy, 700);
+setInterval(shoot, 800);
 
 function update() {
+    // 移動
     if (keys['ArrowUp'] || keys['w']) player.y -= player.speed;
     if (keys['ArrowDown'] || keys['s']) player.y += player.speed;
     if (keys['ArrowLeft'] || keys['a']) player.x -= player.speed;
     if (keys['ArrowRight'] || keys['d']) player.x += player.speed;
 
-    bullets.forEach((b, i) => {
+    // 画面外に出ないように制限
+    player.x = Math.max(player.size, Math.min(canvas.width - player.size, player.x));
+    player.y = Math.max(player.size, Math.min(canvas.height - player.size, player.y));
+
+    // 弾の更新
+    for (let i = bullets.length - 1; i >= 0; i--) {
+        let b = bullets[i];
         b.x += b.vx;
         b.y += b.vy;
         b.life--;
         if (b.life <= 0) bullets.splice(i, 1);
-    });
+    }
 
-    enemies.forEach((en, i) => {
+    // 敵の更新と当たり判定
+    for (let i = enemies.length - 1; i >= 0; i--) {
+        let en = enemies[i];
         const dx = player.x - en.x;
         const dy = player.y - en.y;
         const dist = Math.sqrt(dx*dx + dy*dy) || 1;
+        
         en.x += (dx/dist) * en.speed;
         en.y += (dy/dist) * en.speed;
 
+        // プレイヤーへのダメージ
         if (dist < player.size) {
-            player.hp -= 0.5;
+            player.hp -= 0.4;
             hpEl.innerText = Math.max(0, Math.floor(player.hp));
         }
 
-        bullets.forEach((b, bi) => {
+        // 弾との当たり判定
+        for (let j = bullets.length - 1; j >= 0; j--) {
+            let b = bullets[j];
             const bDist = Math.sqrt((b.x - en.x)**2 + (b.y - en.y)**2);
             if (bDist < en.size + b.size/2) {
                 enemies.splice(i, 1);
-                bullets.splice(bi, 1);
+                bullets.splice(j, 1);
                 score += 10;
                 scoreEl.innerText = score;
                 checkEvolution();
+                break; // 敵が消えたらこの敵に対する他の弾の判定は不要
             }
-        });
-    });
+        }
+    }
 
     if (player.hp <= 0) {
-        alert("ゲームオーバー！到達ランク: " + rankEl.innerText);
+        alert("ゲームオーバーティン！ 到達ランク: " + rankEl.innerText);
         location.reload();
     }
 }
@@ -151,4 +162,27 @@ function draw() {
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
 
-    // 弾（ハート）
+    // 弾（ハート）の描画
+    bullets.forEach(b => {
+        ctx.font = `${b.size}px serif`;
+        ctx.fillText('💖', b.x, b.y);
+    });
+
+    // プレイヤーの描画
+    ctx.font = "50px serif";
+    ctx.fillText(player.char, player.x, player.y);
+
+    // 敵の描画
+    enemies.forEach(en => {
+        ctx.font = "35px serif";
+        ctx.fillText(en.emoji, en.x, en.y);
+    });
+
+    update();
+    requestAnimationFrame(draw);
+}
+
+draw();
+</script>
+</body>
+</html>
