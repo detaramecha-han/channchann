@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>Survival Game Prototype</title>
+    <style>
+        body { margin: 0; overflow: hidden; background: #222; color: white; font-family: sans-serif; }
+        canvas { display: block; background: #333; margin: auto; }
+        #ui { position: absolute; top: 10px; left: 10px; pointer-events: none; }
+    </style>
+</head>
+<body>
+    <div id="ui">
+        <div>スコア: <span id="score">0</span></div>
+        <div>HP: <span id="hp">100</span></div>
+    </div>
+    <canvas id="gameCanvas"></canvas>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const scoreEl = document.getElementById('score');
+const hpEl = document.getElementById('hp');
+
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+
+// ゲーム状態
+let player = { x: canvas.width/2, y: canvas.height/2, size: 20, hp: 100, speed: 4 };
+let enemies = [];
+let bullets = [];
+let score = 0;
+let keys = {};
+
+// 入力検知
+window.addEventListener('keydown', e => keys[e.key] = true);
+window.addEventListener('keyup', e => keys[e.key] = false);
+
+function spawnEnemy() {
+    const edge = Math.floor(Math.random() * 4);
+    let x, y;
+    if (edge === 0) { x = Math.random() * canvas.width; y = -30; }
+    else if (edge === 1) { x = canvas.width + 30; y = Math.random() * canvas.height; }
+    else if (edge === 2) { x = Math.random() * canvas.width; y = canvas.height + 30; }
+    else { x = -30; y = Math.random() * canvas.height; }
+    enemies.push({ x, y, size: 15, speed: 1.5 });
+}
+
+function shoot() {
+    if (enemies.length > 0) {
+        // 一番近い敵を狙う
+        let target = enemies[0];
+        bullets.push({ x: player.x, y: player.y, targetX: target.x, targetY: target.y, speed: 7, life: 100 });
+    }
+}
+
+// 1秒ごとに敵生成、0.5秒ごとに自動射撃
+setInterval(spawnEnemy, 1000);
+setInterval(shoot, 500);
+
+function update() {
+    // プレイヤー移動
+    if (keys['ArrowUp'] || keys['w']) player.y -= player.speed;
+    if (keys['ArrowDown'] || keys['s']) player.y += player.speed;
+    if (keys['ArrowLeft'] || keys['a']) player.x -= player.speed;
+    if (keys['ArrowRight'] || keys['d']) player.x += player.speed;
+
+    // 弾の更新
+    bullets.forEach((b, i) => {
+        const dx = b.targetX - b.x;
+        const dy = b.targetY - b.y;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        b.x += (dx/dist) * b.speed;
+        b.y += (dy/dist) * b.speed;
+        b.life--;
+        if (b.life <= 0) bullets.splice(i, 1);
+    });
+
+    // 敵の更新
+    enemies.forEach((en, i) => {
+        const dx = player.x - en.x;
+        const dy = player.y - en.y;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        en.x += (dx/dist) * en.speed;
+        en.y += (dy/dist) * en.speed;
+
+        // プレイヤーとの衝突
+        if (dist < player.size) {
+            player.hp -= 0.5;
+            hpEl.innerText = Math.floor(player.hp);
+        }
+
+        // 弾との衝突
+        bullets.forEach((b, bi) => {
+            const bDist = Math.sqrt((b.x - en.x)**2 + (b.y - en.y)**2);
+            if (bDist < en.size) {
+                enemies.splice(i, 1);
+                bullets.splice(bi, 1);
+                score += 10;
+                scoreEl.innerText = score;
+            }
+        });
+    });
+
+    if (player.hp <= 0) {
+        alert("ゲームオーバー！ スコア: " + score);
+        location.reload();
+    }
+}
+
+function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // プレイヤー
+    ctx.fillStyle = '#00ff00';
+    ctx.beginPath();
+    ctx.arc(player.x, player.y, player.size, 0, Math.PI*2);
+    ctx.fill();
+
+    // 敵
+    ctx.fillStyle = '#ff4444';
+    enemies.forEach(en => {
+        ctx.beginPath();
+        ctx.arc(en.x, en.y, en.size, 0, Math.PI*2);
+        ctx.fill();
+    });
+
+    // 弾
+    ctx.fillStyle = '#ffff00';
+    bullets.forEach(b => {
+        ctx.beginPath();
+        ctx.arc(b.x, b.y, 5, 0, Math.PI*2);
+        ctx.fill();
+    });
+
+    update();
+    requestAnimationFrame(draw);
+}
+
+draw();
+</script>
+</body>
+</html>
